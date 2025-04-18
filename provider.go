@@ -3,6 +3,7 @@
 package libdnsregery
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -46,7 +47,8 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Received non-200 response: %d", resp.StatusCode)
+		contents, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Received non-200 response: %d %s", resp.StatusCode, contents)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -65,7 +67,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	for _, record := range result.Records {
 		records = append(records, libdns.Record{
 			ID:    record.Name,
-			TTL:   time.Duration(record.TTL),
+			TTL:   time.Duration(record.TTL) * time.Second,
 			Type:  record.Type,
 			Name:  record.Name,
 			Value: record.Address,
@@ -75,7 +77,35 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 }
 
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	return nil, fmt.Errorf("TODO: not implemented")
+	url := fmt.Sprintf("%s/%s/records", baseUrl, zone)
+
+	var regeryRecords []DNSRecord
+	for _, r := range records {
+		regeryRecords = append(regeryRecords, DNSRecord{
+			Address: r.Value,
+			Type:    r.Type,
+			TTL:     int(r.TTL.Seconds()),
+			Name:    r.Name,
+		})
+	}
+
+	request, err := json.Marshal(APIResponse{regeryRecords})
+	log.Printf("%s", request)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(request))
+	req.Header.Add("Authorization", fmt.Sprintf("%s:%s", p.APIToken, p.Secret))
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatalf("Failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		contents, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Received non-200 response: %d\n%s", resp.StatusCode, contents)
+	}
+
+	return records, nil
 }
 
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
