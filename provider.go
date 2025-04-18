@@ -17,6 +17,7 @@ import (
 
 type DNSRecord struct {
 	Address string `json:"address"`
+	Value   string `json:"value"`
 	Type    string `json:"type"`
 	TTL     int    `json:"ttl"`
 	Name    string `json:"name"`
@@ -65,12 +66,18 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 	var records []libdns.Record
 	for _, record := range result.Records {
+		var value string
+		if record.Value == "" {
+			value = record.Address
+		} else {
+			value = record.Value
+		}
 		records = append(records, libdns.Record{
 			ID:    record.Name,
 			TTL:   time.Duration(record.TTL) * time.Second,
 			Type:  record.Type,
 			Name:  record.Name,
-			Value: record.Address,
+			Value: value,
 		})
 	}
 	return records, nil
@@ -83,6 +90,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	for _, r := range records {
 		regeryRecords = append(regeryRecords, DNSRecord{
 			Address: r.Value,
+			Value:   r.Value,
 			Type:    r.Type,
 			TTL:     int(r.TTL.Seconds()),
 			Name:    r.Name,
@@ -147,6 +155,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	for _, r := range records {
 		regeryRecords = append(regeryRecords, DNSRecord{
 			Address: r.Value,
+			Value:   r.Value,
 			Type:    r.Type,
 			TTL:     int(r.TTL.Seconds()),
 			Name:    r.Name,
