@@ -90,7 +90,6 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	}
 
 	request, err := json.Marshal(APIResponse{regeryRecords})
-	log.Printf("%s", request)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(request))
 	req.Header.Add("Authorization", fmt.Sprintf("%s:%s", p.APIToken, p.Secret))
 	req.Header.Add("Content-Type", "application/json")
@@ -116,7 +115,34 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	return nil, fmt.Errorf("TODO: not implemented")
+	url := fmt.Sprintf("%s/%s/records", baseUrl, zone)
+
+	var regeryRecords []DNSRecord
+	for _, r := range records {
+		regeryRecords = append(regeryRecords, DNSRecord{
+			Address: r.Value,
+			Type:    r.Type,
+			TTL:     int(r.TTL.Seconds()),
+			Name:    r.Name,
+		})
+	}
+
+	request, err := json.Marshal(APIResponse{regeryRecords})
+	req, err := http.NewRequest("DELETE", url, bytes.NewBuffer(request))
+	req.Header.Add("Authorization", fmt.Sprintf("%s:%s", p.APIToken, p.Secret))
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Fatalf("Failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		contents, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Received non-200 response: %d\n%s", resp.StatusCode, contents)
+	}
+
+	return records, nil
 }
 
 // Interface guards
