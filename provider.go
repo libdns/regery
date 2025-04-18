@@ -110,7 +110,33 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 // SetRecords sets the records in the zone, either by updating existing records or creating new ones.
 // It returns the updated records.
 func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
-	return nil, fmt.Errorf("TODO: not implemented")
+	var err error
+
+	existingRecords, err := p.GetRecords(ctx, zone)
+	if err != nil {
+		return nil, err
+	}
+
+	var toDelete []libdns.Record
+	for _, r := range existingRecords {
+		for _, newRecord := range records {
+			if newRecord.Name == r.Name {
+				toDelete = append(toDelete, r)
+			}
+		}
+	}
+
+	appendedRecords, err := p.AppendRecords(ctx, zone, records)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = p.DeleteRecords(ctx, zone, toDelete)
+	if err != nil {
+		log.Printf("Failed to delete records that were overwritten, %s", err)
+	}
+
+	return appendedRecords, nil
 }
 
 // DeleteRecords deletes the records from the zone. It returns the records that were deleted.
