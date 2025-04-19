@@ -15,16 +15,16 @@ import (
 	"github.com/libdns/libdns"
 )
 
-type DNSRecord struct {
+type RegeryDNSRecord struct {
 	Address string `json:"address"`
 	Value   string `json:"value"`
 	Type    string `json:"type"`
-	TTL     int    `json:"ttl"`
+	TTL     int    `json:"ttl,omitempty"`
 	Name    string `json:"name"`
 }
 
-type APIResponse struct {
-	Records []DNSRecord `json:"records"`
+type RegeryDNSRecords struct {
+	Records []RegeryDNSRecord `json:"records"`
 }
 
 // Provider facilitates DNS record manipulation with Regery.
@@ -58,7 +58,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		return nil, err
 	}
 
-	var result APIResponse
+	var result RegeryDNSRecords
 	if err := json.Unmarshal(body, &result); err != nil {
 		log.Fatalf("Failed to parse JSON: %v", err)
 		return nil, err
@@ -86,18 +86,13 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	url := fmt.Sprintf("%s/%s/records", baseUrl, zone)
 
-	var regeryRecords []DNSRecord
+	var regeryRecords []RegeryDNSRecord
 	for _, r := range records {
-		regeryRecords = append(regeryRecords, DNSRecord{
-			Address: r.Value,
-			Value:   r.Value,
-			Type:    r.Type,
-			TTL:     int(r.TTL.Seconds()),
-			Name:    r.Name,
-		})
+		regeryRecord := toRegeryDNSRecord(r)
+		regeryRecords = append(regeryRecords, regeryRecord)
 	}
 
-	request, err := json.Marshal(APIResponse{regeryRecords})
+	request, err := json.Marshal(RegeryDNSRecords{regeryRecords})
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(request))
 	req.Header.Add("Authorization", fmt.Sprintf("%s:%s", p.APIToken, p.Secret))
 	req.Header.Add("Content-Type", "application/json")
@@ -151,18 +146,13 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
 	url := fmt.Sprintf("%s/%s/records", baseUrl, zone)
 
-	var regeryRecords []DNSRecord
+	var regeryRecords []RegeryDNSRecord
 	for _, r := range records {
-		regeryRecords = append(regeryRecords, DNSRecord{
-			Address: r.Value,
-			Value:   r.Value,
-			Type:    r.Type,
-			TTL:     int(r.TTL.Seconds()),
-			Name:    r.Name,
-		})
+		regeryRecord := toRegeryDNSRecord(r)
+		regeryRecords = append(regeryRecords, regeryRecord)
 	}
 
-	request, err := json.Marshal(APIResponse{regeryRecords})
+	request, err := json.Marshal(RegeryDNSRecords{regeryRecords})
 	req, err := http.NewRequest("DELETE", url, bytes.NewBuffer(request))
 	req.Header.Add("Authorization", fmt.Sprintf("%s:%s", p.APIToken, p.Secret))
 	req.Header.Add("Content-Type", "application/json")
@@ -187,3 +177,18 @@ var (
 	_ libdns.RecordSetter   = (*Provider)(nil)
 	_ libdns.RecordDeleter  = (*Provider)(nil)
 )
+
+func toRegeryDNSRecord(r libdns.Record) RegeryDNSRecord {
+	var ttlSeconds int
+	ttlSeconds = int(r.TTL.Seconds())
+	if ttlSeconds == 0 {
+		ttlSeconds = 3600
+	}
+	return RegeryDNSRecord{
+		Address: r.Value,
+		Value:   r.Value,
+		Type:    r.Type,
+		TTL:     ttlSeconds,
+		Name:    r.Name,
+	}
+}
