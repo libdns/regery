@@ -104,7 +104,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 
 	if resp.StatusCode != http.StatusOK {
 		contents, _ := io.ReadAll(resp.Body)
-		log.Fatalf("Received non-200 response: %d\n%s", resp.StatusCode, contents)
+		log.Fatalf("Received non-200 response: %d\n%s\n%s\n%+v", resp.StatusCode, contents, request, records)
 	}
 
 	return records, nil
