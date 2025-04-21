@@ -1,4 +1,4 @@
-module github.com/olivierdeckers/dns-regery
+module github.com/libdns/regery
 
 go 1.18
 
