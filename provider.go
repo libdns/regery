@@ -72,12 +72,11 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		} else {
 			value = record.Value
 		}
-		records = append(records, libdns.Record{
-			ID:    record.Name,
-			TTL:   time.Duration(record.TTL) * time.Second,
-			Type:  record.Type,
-			Name:  record.Name,
-			Value: value,
+		records = append(records, libdns.RR{
+			Name: record.Name,
+			TTL:  time.Duration(record.TTL) * time.Second,
+			Type: record.Type,
+			Data: value,
 		})
 	}
 	return records, nil
@@ -123,7 +122,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	var toDelete []libdns.Record
 	for _, r := range existingRecords {
 		for _, newRecord := range records {
-			if newRecord.Name == r.Name {
+			if newRecord.RR().Name == r.RR().Name {
 				toDelete = append(toDelete, r)
 			}
 		}
@@ -179,16 +178,17 @@ var (
 )
 
 func toRegeryDNSRecord(r libdns.Record) RegeryDNSRecord {
+	rr := r.RR()
 	var ttlSeconds int
-	ttlSeconds = int(r.TTL.Seconds())
+	ttlSeconds = int(rr.TTL.Seconds())
 	if ttlSeconds == 0 {
 		ttlSeconds = 3600
 	}
 	return RegeryDNSRecord{
-		Address: r.Value,
-		Value:   r.Value,
-		Type:    r.Type,
+		Address: rr.Data,
+		Value:   rr.Data,
+		Type:    rr.Type,
 		TTL:     ttlSeconds,
-		Name:    r.Name,
+		Name:    rr.Name,
 	}
 }
